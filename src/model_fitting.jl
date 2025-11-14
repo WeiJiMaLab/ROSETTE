@@ -31,6 +31,7 @@ end
 
 
 function apply_γp(s_init::Int, γp::Float64, α::Float64, fi::FittingStruct)::Matrix{Float64}
+    """First column is p(win), second p(progress), third p(regress), fourth p(stopping)"""
     get_stopping_probabilities!(fi.P, γp, α, s_init, fi.all_sizes)
 
     sm = 1 .- sum(fi.P, dims=2)
@@ -93,6 +94,23 @@ function apply_γao(temp_dict::Dict{and_type, Float64}, dict::Dict{and_type, Flo
     end
     # probability of stopping
     temp_dict[(0, (-1, -1))] = 1 - sum(values(temp_dict))
+    return nothing
+end
+
+function apply_γao_new(temp_dict::Dict{and_type, Float64}, dict::Dict{and_type, Float64}, γ::Float64, ϵ::Float64)::Nothing
+    empty!(temp_dict)
+    # updated dict
+    for (k, v) in dict
+        if v > 0
+            temp_dict[k] = v*(1-γ)^k[1]
+        end
+    end
+    sm = sum(values(temp_dict))
+    for (k, v) in temp_dict
+        temp_dict[k] = ϵ*v + (1 - ϵ)*(v / sm)
+    end
+    # probability of stopping
+    temp_dict[(0, (-1, -1))] = ϵ*(1 - sm)
     return nothing
 end
 
@@ -163,6 +181,7 @@ function update_QR_matrices_and_or!(fi::FittingStruct, γao::Float64, prev_move:
     for s in 1:N_t
         dict = fi.all_dicts[s]
         moves = fi.all_moves[s]
+        # apply_γao_new(temp_dict, dict, γao, ϵ)
         apply_γao(temp_dict, dict, γao)
         process_dict!(ps, move_dict, moves, temp_dict, same_car_moves)
         idxs = fi.all_idxs[s]

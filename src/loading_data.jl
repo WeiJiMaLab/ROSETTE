@@ -209,7 +209,9 @@ end
 function load_rh_parameters()
     folder = "data/params"
     # nlogγao, nlogγp, α
-    params = zeros(42, 3)
+    # params = zeros(42, 3)
+    # nlogγao, nlogγp, α, nlogγre, u, v
+    params = zeros(42, 6)
     i = 1
     for filename in readdir(folder)
         if filename[1] != '.'
@@ -219,6 +221,10 @@ function load_rh_parameters()
     end
     return params
 end
+
+# plot(layout=grid(1, 3), size=(600, 150))
+# [histogram!(old_params[:, i], sp=i) for i in 1:3]
+# plot!()
 
 function load_all_ps()
     folder = "data/all_ps"

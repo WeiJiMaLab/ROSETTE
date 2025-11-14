@@ -34,7 +34,7 @@ df[!, :features] = stuff["features"];
 
 filtered_df = get_filtered_df(subjects, problems, df);
 
-ss =  get_ss(state_actions);
+ss = get_ss(state_actions);
 filtered_df[!, :s] = ss;
 
 get_all_ps(0, 1, filtered_df, analysis_info, params, fitting_infos, subjects, problems);
