@@ -1,5 +1,45 @@
-data/processed_data/stuff.jld2
-data/processed_data/fitting_infos.jld2
+# macOS/editor
+.DS_Store
 **/.DS_Store
-.vscode
-resources
+.vscode/
+
+# Julia/runtime artifacts
+.julia/
+*.ji
+*.cov
+*.mem
+*.jl.cov
+
+# Large generated caches
+data/processed_data/*.jld2
+data/tower_of_london/*.jld2
+data/tol_data.jld2
+
+# Batch fitting outputs and intermediate parameter folders
+data/all_fitted_results_*/
+data/newest_results_*/
+data/fit_per_state_*/
+data/fitting_classical_*/
+data/OLD_fitting_classical_*/
+data/nlls_*/
+data/params*/
+data/params_*.jld2
+
+# Generated policy/simulation outputs
+data/all_ps/
+data/ps_RH/
+data/ps_TOL/
+data/simulated_games_RH/
+data/simulated_games_TOL/
+data/OLD_simulated_games_rh/
+data/OLD_simulated_games_tol/
+
+# Generated figures and manuscript resources
+figures/
+tol_trajs/
+resources/
+
+# Cheap canonical final summaries/results are intentionally versioned.
+!data/final_params/
+!data/final_params/**
+!data/processed_data/summary_stats_*.csv
