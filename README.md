@@ -17,7 +17,14 @@ The original implementation lives in `src/`. It is preserved as legacy code. The
 
 ## Using the Cleaned Code
 
-From the repository root:
+After installing Julia, clone this repository, open a terminal in the
+repository root, and install the recorded project dependencies once:
+
+```bash
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+Then load the cleaned implementation:
 
 ```julia
 include("cleaned_code/ROSETTE.jl")
@@ -32,10 +39,12 @@ Run the equivalence checks with:
 julia --project=. test_cleaned_code.jl
 ```
 
-On this machine Julia was available at `/usr/local/bin/julia`, and the verified command was:
+The second-revision Figure 9 shortest-path control, its 60 puzzle-level input
+points, and the resulting summary are in
+`fast_code/validation/figure9_r2_shortest_path_20261023/`. Run it with:
 
 ```bash
-/usr/local/bin/julia --project=. test_cleaned_code.jl
+julia --project=. fast_code/validation/figure9_r2_shortest_path_20261023/analyze.jl
 ```
 
 ## Data Flow
