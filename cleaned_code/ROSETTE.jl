@@ -8,7 +8,9 @@ using JLD2
 using JSON
 using LinearAlgebra
 using Optim
-using Plots
+if get(ENV, "ROSETTE_HEADLESS_TESTS", "0") != "1"
+    @eval using Plots
+end
 using ProgressBars
 using Random
 using SparseArrays

@@ -39,6 +39,15 @@ Run the equivalence checks with:
 julia --project=. test_cleaned_code.jl
 ```
 
+If your environment cannot initialize the Plots/Qt graphics backend, the
+computational equivalence tests can run without loading it:
+
+```bash
+ROSETTE_HEADLESS_TESTS=1 julia --project=. test_cleaned_code.jl
+```
+
+Plotting helpers are unavailable during that headless test run.
+
 The second-revision Figure 9 shortest-path control, its 60 puzzle-level input
 points, and the resulting summary are in
 `fast_code/validation/figure9_r2_shortest_path_20261023/`. Run it with:

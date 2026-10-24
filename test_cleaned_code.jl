@@ -20,7 +20,9 @@ using JLD2
 using JSON
 using LinearAlgebra
 using Optim
-using Plots
+if get(ENV, "ROSETTE_HEADLESS_TESTS", "0") != "1"
+    @eval using Plots
+end
 using ProgressBars
 using SparseArrays
 using StaticArrays
@@ -36,6 +38,21 @@ struct FittingStruct
     all_sizes::Vector{Int64}
 end
 include(joinpath(@__DIR__, "src", "rush_hour.jl"))
+# Legacy files relied on these aliases being set by a separate interactive script.
+# Define them here so the tests run from a fresh clone.
+const LEGACY_CARS = 9
+const s_free_type = MVector{LEGACY_CARS, Int}
+const s_fixed_type = NTuple{LEGACY_CARS, Car}
+const s_type = Tuple{s_free_type, s_fixed_type}
+const a_type = Tuple{Int, Int}
+const arr_type = Matrix{Int}
+const moves_type = MVector{4 * LEGACY_CARS, a_type}
+const blocked_cars_type = MVector{4, Int}
+const move_amounts_type = MVector{4, Int}
+const blocking_nodes_type = Matrix{Int}
+const subgoal_type = MVector{5, Int}
+const or_type = Tuple{Int, subgoal_type}
+const and_type = Tuple{Int, a_type}
 include(joinpath(@__DIR__, "src", "rush_hour_utils.jl"))
 include(joinpath(@__DIR__, "src", "loading_data.jl"))
 include(joinpath(@__DIR__, "src", "model_fitting.jl"))

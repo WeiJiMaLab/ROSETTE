@@ -306,7 +306,7 @@ function get_analysis_info(problems)
     return analysis_info
 end
 
-function get_QR_matrices(game::RushHour)
+function get_QR_matrices(game)
     states, leafs = search(game)
     N_t = length(states)
     N_a = length(leafs)

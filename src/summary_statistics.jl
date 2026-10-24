@@ -15,11 +15,20 @@ function y_p_in_tree(move, row, d_goals)
     return move ∈ keys(parents_moves)
 end
 
-function y_p_undo(move, row, d_goals)
+function y_p_undo_RH(move, row, d_goals)
     if row.prev_move == (0, 0)
         return 0
     else
         undo_move = (row.prev_move[1], -row.prev_move[2])
+        return move == undo_move
+    end
+end
+
+function y_p_undo_TOL(move, row, d_goals)
+    if row.prev_move == (0, 0)
+        return 0
+    else
+        undo_move = (row.prev_move[2], row.prev_move[1])
         return move == undo_move
     end
 end
@@ -31,6 +40,16 @@ function y_p_same_car(move, row, d_goals)
         prev_car = row.prev_move[1]
         curr_car = move[1]
         return curr_car == prev_car
+    end
+end
+
+function y_p_same_bead(move, row, d_goals)
+    if row.prev_move == (0, 0)
+        return 0
+    else
+        prev_bead = row.prev_move[2]
+        curr_bead = move[1]
+        return curr_bead == prev_bead
     end
 end
 
@@ -79,6 +98,11 @@ function y_p_better(move, row, d_goals)
     return d_goal_sampled < row.d_goal
 end
 
+function y_p_full(move, row, d_goals)
+    move_idx = findfirst(x->x==move, row.all_moves)
+    return row.p_full[move_idx]
+end
+
 function y_p_in_tree_better(move, row, d_goals)
     if y_p_in_tree(move, row, d_goals) == 0
         return 1e9
@@ -103,10 +127,19 @@ function y_red_back(move, row, d_goals)
     return move[1] == 1 && move[2] < 0
 end
 
-function calculate_summary_statistics(df, d_goals_prbs; iters=100)
-    summary_stats = [X_d_goal, y_d_goal, y_p_in_tree, y_p_undo, y_p_same_car, y_d_tree, y_p_worse, y_p_same, y_p_better, y_red_back, y_d_tree, y_d_tree_diff]
+function calculate_summary_statistics(df, d_goals_prbs; tol=false, iters=100)
+    models = ["chance", "only-$(tol ? "beta" : "gamma_ao")", "only-gamma_r", "only-gamma_p", "lesion-$(tol ? "beta" : "gamma_ao")", "lesion-gamma_r", "lesion-gamma_p", "full"]
+    # summary_stats = [X_d_goal, y_d_goal, y_p_in_tree, y_p_undo, y_p_same_car, y_d_tree, y_p_worse, y_p_same, y_p_better, y_red_back, y_d_tree, y_d_tree_diff]
+    summary_stats = []
+    if !tol
+        summary_stats = [X_d_goal, y_d_goal, y_p_undo_RH, y_p_same_car, y_p_worse, y_p_same, y_p_better, y_p_full]
+    else
+        # df.subject = string.(df.subject)
+        # df.puzzle = string.(df.puzzle)
+        summary_stats = [X_d_goal, y_d_goal, y_p_undo_TOL, y_p_same_bead, y_p_worse, y_p_same, y_p_better, y_p_full]
+    end
     N_stats = length(summary_stats)
-    df_stats = DataFrame(subject=String[], puzzle=String[], model=String[], X_d_goal=Int[], y_d_goal=Float64[], y_p_in_tree=Float64[], y_p_undo=Float64[], y_p_same_car=Float64[], y_d_tree=Float64[], y_p_worse=Float64[], y_p_same=Float64[], y_p_better=Float64[], y_red_back=Float64[], h_d_tree=Int[], h_d_tree_diff=Int[])
+    df_stats = DataFrame(subject=String[], puzzle=String[], model=String[], X_d_goal=Int[], y_d_goal=Float64[], y_p_undo=Float64[], y_p_same_car=Float64[], y_p_worse=Float64[], y_p_same=Float64[], y_p_better=Float64[], y_p_full=Float64[])
     df_ = df[df.event .== "move", :]
     for row in ProgressBar(eachrow(df_))
         # subject data
@@ -114,31 +147,33 @@ function calculate_summary_statistics(df, d_goals_prbs; iters=100)
         for (n, sum_stat) in enumerate(summary_stats)
             s[n] = sum_stat(row.move, row, d_goals_prbs)
         end
-        stats = [row.subject, row.puzzle, "data"]
+        stats = [string(row.subject), string(row.puzzle), "data"]
         push!(df_stats, vcat(stats, s))
         # model simulations
-        stats = [row.subject, row.puzzle, "model"]
-        ps = row.ps
-        s = zeros(N_stats - 2, iters)
-        for i in 1:iters
-            move = wsample(row.all_moves, ps)
-            for (n, sum_stat) in enumerate(summary_stats)
-                s[n, i] = sum_stat(move, row, d_goals_prbs)
-                if n == N_stats - 2
-                    break
+        for model in models
+            stats = [string(row.subject), string(row.puzzle), model]
+            ps = row[Symbol("p_$(model)")]
+            s = zeros(N_stats, iters)
+            for i in 1:iters
+                move = wsample(row.all_moves, ps)
+                for (n, sum_stat) in enumerate(summary_stats)
+                    s[n, i] = sum_stat(move, row, d_goals_prbs)
+                    if n == N_stats
+                        break
+                    end
                 end
             end
+            stats = vcat(stats, [mean(ss[ss .< 1e9]) for ss in eachrow(s)])
+            # histogram stats
+            # first_move = wsample(row.all_moves, ps)
+            # stats = vcat(stats, [summary_stats[end-1](first_move, row, d_goals_prbs), summary_stats[end](first_move, row, d_goals_prbs)])
+            push!(df_stats, stats)
         end
-        stats = vcat(stats, [mean(ss[ss .< 1e9]) for ss in eachrow(s)])
-        # histogram stats
-        first_move = wsample(row.all_moves, ps)
-        stats = vcat(stats, [summary_stats[end-1](first_move, row, d_goals_prbs), summary_stats[end](first_move, row, d_goals_prbs)])
-        push!(df_stats, stats)
     end
     return df_stats
 end
 
-function bin_stats(df_stats, independent_var::Symbol; nbins=10, subject_level=false)
+function bin_stats_subj(df_stats, independent_var::Symbol; nbins=10, subject_level=false)
     input_column_names = propertynames(df_stats)[4:end]
     output_column_names = Symbol[]
     for n in input_column_names
@@ -165,6 +200,18 @@ function bin_stats(df_stats, independent_var::Symbol; nbins=10, subject_level=fa
     end
     gdf_binned_stats = groupby(binned_stats_subj_, [:model, :bin_number])
     return combine(gdf_binned_stats, output_column_names => calculate_mean_sem_2 => final_column_names)
+end
+
+function bin_stats(df_stats, independent_var::Symbol; nbins=10)
+    input_column_names = propertynames(df_stats)[4:end]
+    output_column_names = Symbol[]
+    for n in input_column_names
+        push!(output_column_names, Symbol("m_"*string(n)))
+        push!(output_column_names, Symbol("sem_"*string(n)))
+    end
+    transform!(df_stats, independent_var => (x -> add_bin_number(x; nbins=nbins)) => :bin_number)
+    gdf_subj = groupby(df_stats, [:bin_number, :model])
+    return combine(gdf_subj, input_column_names => calculate_mean_sem_1 => output_column_names)
 end
 
 function add_bin_number(d_goal; nbins=10)
@@ -204,47 +251,4 @@ end
 
 function get_ss(state_actions)
     return vcat([vcat([[state_actions[k][j][1][i][1] for i in 1:(length(state_actions[k][j][1])-1)] for j in 1:length(state_actions[k]) if length(state_actions[k][j]) > 0]...) for k in eachindex(state_actions)]...);
-end
-
-function get_all_ps(n, N, df, analysis_info, params, fitting_infos, subjects, problems)
-    start_N = n*N
-    end_N = (n+1)*N
-    
-    println(start_N)
-    println(end_N)
-    flush(stdout)
-    
-    all_ps = Vector{Float64}[]
-    for (n, row) in enumerate(eachrow(df))
-        if n < start_N
-            continue
-        end
-        if n > end_N
-            continue
-        end
-    
-        if n % 500 == 0
-            println(n)
-            flush(stdout)
-        end
-        
-        subj_ind = findfirst(x->x==row.subject, subjects)
-        problem_ind = findfirst(x->x==row.puzzle, problems)
-    
-        state_to_idx, idx_to_state, game, N_t = analysis_info[problem_ind]
-        s = state_to_idx[row.s]
-        prev_move = row.prev_move
-        p, neighs = get_p(params[subj_ind, :], s, prev_move, fitting_infos[problem_ind])
-        aligned_p = zeros(length(p))
-        for (m, neigh) in enumerate(neighs)
-            s_int = idx_to_state[neigh]
-            state = int_to_s(s_int, game)
-            _, s_int_32 = board_to_int32(state)
-            idx = findfirst(x->x==s_int_32, row.neighs)
-            aligned_p[idx] = p[m]
-        end
-        push!(all_ps, aligned_p)
-    end
-    return all_ps
-   #@save "all_ps_$(N).jld2" all_ps
 end
