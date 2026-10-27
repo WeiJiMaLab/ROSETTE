@@ -1,254 +1,181 @@
-
-function X_d_goal(move, row, d_goals)
-    return row.d_goal
-end
+X_d_goal(move, row, d_goals) = row.d_goal
 
 function y_d_goal(move, row, d_goals)
-    move_idx = findfirst(x->x==move, row.all_moves)
+    move_idx = findfirst(==(move), row.all_moves)
     sampled_s = row.neighs[move_idx]
-    d_goal_next = d_goals[row.puzzle][sampled_s]
-    return d_goal_next+1
+    return d_goals[row.puzzle][sampled_s] + 1
 end
 
 function y_p_in_tree(move, row, d_goals)
-    AND_root, AND, OR, parents_moves = row.tree
+    _, _, _, parents_moves = row.tree
     return move ∈ keys(parents_moves)
 end
 
 function y_p_undo_RH(move, row, d_goals)
-    if row.prev_move == (0, 0)
-        return 0
-    else
-        undo_move = (row.prev_move[1], -row.prev_move[2])
-        return move == undo_move
-    end
+    row.prev_move == (0, 0) && return 0
+    return move == (row.prev_move[1], -row.prev_move[2])
 end
 
 function y_p_undo_TOL(move, row, d_goals)
-    if row.prev_move == (0, 0)
-        return 0
-    else
-        undo_move = (row.prev_move[2], row.prev_move[1])
-        return move == undo_move
-    end
+    row.prev_move == (0, 0) && return 0
+    return move == (row.prev_move[2], row.prev_move[1])
 end
 
 function y_p_same_car(move, row, d_goals)
-    if row.prev_move == (0, 0)
-        return 0
-    else
-        prev_car = row.prev_move[1]
-        curr_car = move[1]
-        return curr_car == prev_car
-    end
+    row.prev_move == (0, 0) && return 0
+    return move[1] == row.prev_move[1]
 end
 
 function y_p_same_bead(move, row, d_goals)
-    if row.prev_move == (0, 0)
-        return 0
-    else
-        prev_bead = row.prev_move[2]
-        curr_bead = move[1]
-        return curr_bead == prev_bead
-    end
+    row.prev_move == (0, 0) && return 0
+    return move[1] == row.prev_move[2]
 end
 
 function y_d_tree(move, row, d_goals)
-    AND_root, AND, OR, parents_moves = row.tree
+    _, _, _, parents_moves = row.tree
     if move in keys(parents_moves)
-        ds = [or_node[1] for or_node in parents_moves[move]]
-        return minimum(ds)
-    else
-        return 1e9
+        return minimum(or_node[1] for or_node in parents_moves[move])
     end
+    return 1e9
 end
 
 function y_d_tree_diff(move, row, d_goals)
-    AND_root, AND, OR, parents_moves = row.tree
-    all_unique_depths = sort(unique(reduce(vcat, [[or_node[1] for or_node in parents_moves[move]] for move in keys(parents_moves)])))
-    diff_depths = all_unique_depths .- all_unique_depths[1]
+    _, _, _, parents_moves = row.tree
+    unique_depths = sort(unique(reduce(vcat, [[or_node[1] for or_node in parents_moves[m]] for m in keys(parents_moves)])))
+    diff_depths = unique_depths .- unique_depths[1]
     if move in keys(parents_moves)
-        # look at depths of all possible OR nodes, find their position in unique depths,
-        # and let this index the rank
-        ranked_ds = [diff_depths[findfirst(x->x==or_node[1], all_unique_depths)] for or_node in parents_moves[move]]
-        return minimum(ranked_ds)
-    else
-        return 1e9
+        ranked_depths = [diff_depths[findfirst(==(or_node[1]), unique_depths)] for or_node in parents_moves[move]]
+        return minimum(ranked_depths)
     end
+    return 1e9
 end
 
 function y_p_worse(move, row, d_goals)
-    move_idx = findfirst(x->x==move, row.all_moves)
+    move_idx = findfirst(==(move), row.all_moves)
     sampled_s = row.neighs[move_idx]
-    d_goal_sampled = d_goals[row.puzzle][sampled_s]
-    return d_goal_sampled > row.d_goal
+    return d_goals[row.puzzle][sampled_s] > row.d_goal
 end
 
 function y_p_same(move, row, d_goals)
-    move_idx = findfirst(x->x==move, row.all_moves)
+    move_idx = findfirst(==(move), row.all_moves)
     sampled_s = row.neighs[move_idx]
-    d_goal_sampled = d_goals[row.puzzle][sampled_s]
-    return d_goal_sampled == row.d_goal
+    return d_goals[row.puzzle][sampled_s] == row.d_goal
 end
 
 function y_p_better(move, row, d_goals)
-    move_idx = findfirst(x->x==move, row.all_moves)
+    move_idx = findfirst(==(move), row.all_moves)
     sampled_s = row.neighs[move_idx]
-    d_goal_sampled = d_goals[row.puzzle][sampled_s]
-    return d_goal_sampled < row.d_goal
+    return d_goals[row.puzzle][sampled_s] < row.d_goal
 end
 
 function y_p_full(move, row, d_goals)
-    move_idx = findfirst(x->x==move, row.all_moves)
+    move_idx = findfirst(==(move), row.all_moves)
     return row.p_full[move_idx]
 end
 
 function y_p_in_tree_better(move, row, d_goals)
-    if y_p_in_tree(move, row, d_goals) == 0
-        return 1e9
-    else
-        return y_p_better(move, row, d_goals)
-    end
+    y_p_in_tree(move, row, d_goals) == 0 && return 1e9
+    return y_p_better(move, row, d_goals)
 end
 
-function y_red_back(move, row, d_goals)
-    # back_possible = false
-    # for move in row.all_moves
-    #     if move[1] == 1 && move[2] < 0
-    #         back_possible = true
-    #         break
-    #     end
-    # end
-    # if back_possible
-    #     return move[1] == 1 && move[2] < 0
-    # else
-    #     return 1e9
-    # end
-    return move[1] == 1 && move[2] < 0
-end
+y_red_back(move, row, d_goals) = move[1] == 1 && move[2] < 0
 
-function calculate_summary_statistics(df, d_goals_prbs; tol=false, iters=100)
+function calculate_summary_statistics(df::DataFrame, d_goals_prbs; tol=false, iters=100)
     models = ["chance", "only-$(tol ? "beta" : "gamma_ao")", "only-gamma_r", "only-gamma_p", "lesion-$(tol ? "beta" : "gamma_ao")", "lesion-gamma_r", "lesion-gamma_p", "full"]
-    # summary_stats = [X_d_goal, y_d_goal, y_p_in_tree, y_p_undo, y_p_same_car, y_d_tree, y_p_worse, y_p_same, y_p_better, y_red_back, y_d_tree, y_d_tree_diff]
-    summary_stats = []
-    if !tol
-        summary_stats = [X_d_goal, y_d_goal, y_p_undo_RH, y_p_same_car, y_p_worse, y_p_same, y_p_better, y_p_full]
-    else
-        # df.subject = string.(df.subject)
-        # df.puzzle = string.(df.puzzle)
-        summary_stats = [X_d_goal, y_d_goal, y_p_undo_TOL, y_p_same_bead, y_p_worse, y_p_same, y_p_better, y_p_full]
-    end
-    N_stats = length(summary_stats)
-    df_stats = DataFrame(subject=String[], puzzle=String[], model=String[], X_d_goal=Int[], y_d_goal=Float64[], y_p_undo=Float64[], y_p_same_car=Float64[], y_p_worse=Float64[], y_p_same=Float64[], y_p_better=Float64[], y_p_full=Float64[])
-    df_ = df[df.event .== "move", :]
-    for row in ProgressBar(eachrow(df_))
-        # subject data
-        s = zeros(N_stats)
-        for (n, sum_stat) in enumerate(summary_stats)
-            s[n] = sum_stat(row.move, row, d_goals_prbs)
-        end
-        stats = [string(row.subject), string(row.puzzle), "data"]
-        push!(df_stats, vcat(stats, s))
-        # model simulations
+    summary_stats = tol ?
+        [X_d_goal, y_d_goal, y_p_undo_TOL, y_p_same_bead, y_p_worse, y_p_same, y_p_better, y_p_full] :
+        [X_d_goal, y_d_goal, y_p_undo_RH, y_p_same_car, y_p_worse, y_p_same, y_p_better, y_p_full]
+
+    df_stats = DataFrame(
+        subject=String[],
+        puzzle=String[],
+        model=String[],
+        X_d_goal=Int[],
+        y_d_goal=Float64[],
+        y_p_undo=Float64[],
+        y_p_same_car=Float64[],
+        y_p_worse=Float64[],
+        y_p_same=Float64[],
+        y_p_better=Float64[],
+        y_p_full=Float64[],
+    )
+
+    df_moves = df[df.event .== "move", :]
+    for row in ProgressBar(eachrow(df_moves))
+        data_stats = [sum_stat(row.move, row, d_goals_prbs) for sum_stat in summary_stats]
+        push!(df_stats, vcat([string(row.subject), string(row.puzzle), "data"], data_stats))
+
         for model in models
-            stats = [string(row.subject), string(row.puzzle), model]
-            ps = row[Symbol("p_$(model)")]
-            s = zeros(N_stats, iters)
+            ps = row[Symbol("p_$model")]
+            sampled = zeros(length(summary_stats), iters)
             for i in 1:iters
                 move = wsample(row.all_moves, ps)
                 for (n, sum_stat) in enumerate(summary_stats)
-                    s[n, i] = sum_stat(move, row, d_goals_prbs)
-                    if n == N_stats
-                        break
-                    end
+                    sampled[n, i] = sum_stat(move, row, d_goals_prbs)
                 end
             end
-            stats = vcat(stats, [mean(ss[ss .< 1e9]) for ss in eachrow(s)])
-            # histogram stats
-            # first_move = wsample(row.all_moves, ps)
-            # stats = vcat(stats, [summary_stats[end-1](first_move, row, d_goals_prbs), summary_stats[end](first_move, row, d_goals_prbs)])
-            push!(df_stats, stats)
+            stats = [mean(values[values .< 1e9]) for values in eachrow(sampled)]
+            push!(df_stats, vcat([string(row.subject), string(row.puzzle), model], stats))
         end
     end
+
     return df_stats
 end
 
-function bin_stats_subj(df_stats, independent_var::Symbol; nbins=10, subject_level=false)
-    input_column_names = propertynames(df_stats)[4:end]
-    output_column_names = Symbol[]
-    for n in input_column_names
-        push!(output_column_names, Symbol("mean_"*string(n)))
-        push!(output_column_names, Symbol("std_"*string(n)))
-    end
-    final_column_names = Symbol[]
-    for n in input_column_names
-        push!(final_column_names, Symbol("m_"*string(n)))
-        push!(final_column_names, Symbol("sem_"*string(n)))
-    end
-    binned_stats_subj = []
+function bin_stats_subj(df_stats::DataFrame, independent_var::Symbol; nbins=10, subject_level=false)
+    input_columns = propertynames(df_stats)[4:end]
+    subject_columns = reduce(vcat, [[Symbol("mean_$name"), Symbol("std_$name")] for name in input_columns])
+    output_columns = reduce(vcat, [[Symbol("m_$name"), Symbol("sem_$name")] for name in input_columns])
+
+    binned_by_subject = []
     for subj in unique(df_stats.subject)
         df_subj = df_stats[df_stats.subject .== subj, :]
         transform!(df_subj, independent_var => (x -> add_bin_number(x; nbins=nbins)) => :bin_number)
-        gdf_subj = groupby(df_subj, [:bin_number, :model])
-        dummy = combine(gdf_subj, input_column_names => calculate_mean_sem_1 => output_column_names)
-        dummy[!, :subject] .= subj
-        push!(binned_stats_subj, dummy)
+        grouped = groupby(df_subj, [:bin_number, :model])
+        combined = combine(grouped, input_columns => calculate_mean_sem_1 => subject_columns)
+        combined[!, :subject] .= subj
+        push!(binned_by_subject, combined)
     end
-    binned_stats_subj_ = vcat(binned_stats_subj...)
-    if subject_level
-        return binned_stats_subj_
-    end
-    gdf_binned_stats = groupby(binned_stats_subj_, [:model, :bin_number])
-    return combine(gdf_binned_stats, output_column_names => calculate_mean_sem_2 => final_column_names)
+
+    subject_stats = vcat(binned_by_subject...)
+    subject_level && return subject_stats
+    return combine(groupby(subject_stats, [:model, :bin_number]), subject_columns => calculate_mean_sem_2 => output_columns)
 end
 
-function bin_stats(df_stats, independent_var::Symbol; nbins=10)
-    input_column_names = propertynames(df_stats)[4:end]
-    output_column_names = Symbol[]
-    for n in input_column_names
-        push!(output_column_names, Symbol("m_"*string(n)))
-        push!(output_column_names, Symbol("sem_"*string(n)))
-    end
+function bin_stats(df_stats::DataFrame, independent_var::Symbol; nbins=10)
+    input_columns = propertynames(df_stats)[4:end]
+    output_columns = reduce(vcat, [[Symbol("m_$name"), Symbol("sem_$name")] for name in input_columns])
     transform!(df_stats, independent_var => (x -> add_bin_number(x; nbins=nbins)) => :bin_number)
-    gdf_subj = groupby(df_stats, [:bin_number, :model])
-    return combine(gdf_subj, input_column_names => calculate_mean_sem_1 => output_column_names)
+    return combine(groupby(df_stats, [:bin_number, :model]), input_columns => calculate_mean_sem_1 => output_columns)
 end
 
 function add_bin_number(d_goal; nbins=10)
     bin_n = zeros(Int64, length(d_goal))
-    bins = quantile(d_goal, 0:(1/nbins):1)
-    if nbins == 2
-        bins = [0, 0.5, 1.0]
-    end
+    bins = nbins == 2 ? [0, 0.5, 1.0] : quantile(d_goal, 0:(1 / nbins):1)
+
     for i in 1:nbins
-        if i < nbins
-            idxs = d_goal .>= bins[i] .&& d_goal .< bins[i+1]
-        else
-            idxs = d_goal .>= bins[i] .&& d_goal .<= bins[i+1]
-        end
+        idxs = i < nbins ? (d_goal .>= bins[i]) .& (d_goal .< bins[i + 1]) : (d_goal .>= bins[i]) .& (d_goal .<= bins[i + 1])
         bin_n[idxs] .= i
     end
+
     return bin_n
 end
 
 function calculate_mean_sem_1(cols...)
-    ls = []
+    values = []
     for col in cols
-        push!(ls, mean(col[col .< 1e9]), sem(col[col .< 1e9]))
+        filtered = col[col .< 1e9]
+        push!(values, mean(filtered), sem(filtered))
     end
-    return [Tuple(ls)]
+    return [Tuple(values)]
 end
 
 function calculate_mean_sem_2(cols...)
-    ls = []
-    for i in 1:Int(length(cols)/2)
-        m = cols[2*i - 1]
-        s = cols[2*i]
-        push!(ls, mean(m), 1.96*sqrt(sem(m)^2 + mean(s .^ 2)/length(s)))
+    values = []
+    for i in 1:Int(length(cols) / 2)
+        means = cols[2i - 1]
+        sems = cols[2i]
+        push!(values, mean(means), 1.96 * sqrt(sem(means)^2 + mean(sems .^ 2) / length(sems)))
     end
-    return [Tuple(ls)]
-end
-
-function get_ss(state_actions)
-    return vcat([vcat([[state_actions[k][j][1][i][1] for i in 1:(length(state_actions[k][j][1])-1)] for j in 1:length(state_actions[k]) if length(state_actions[k][j]) > 0]...) for k in eachindex(state_actions)]...);
+    return [Tuple(values)]
 end
